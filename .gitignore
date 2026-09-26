@@ -1,0 +1,22 @@
+## .NET
+bin/
+obj/
+artifacts/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+TestResults/
+*.nupkg
+
+## Local config (connection strings, personal settings)
+appsettings.Local.json
+appsettings.*.Local.json
+
+## Downloaded hand-history data (scripts/download-handhq.ps1), ~16 GB if complete
+_phh-dataset-local/
+
+## OS
+Thumbs.db
+.DS_Store
