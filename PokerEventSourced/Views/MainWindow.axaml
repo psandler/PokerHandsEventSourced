@@ -1,0 +1,10 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PokerEventSourced.ViewModels"
+        x:Class="PokerEventSourced.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Poker Event Sourced"
+        Width="1000" Height="700">
+    <TextBlock Margin="16" Text="{Binding Status}" />
+</Window>

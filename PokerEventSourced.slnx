@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/docs/">
+    <File Path="README.md" />
+    <File Path="CLAUDE.md" />
+    <File Path="documents/TODO.md" />
+    <File Path="documents/phh-format.md" />
+    <File Path="LICENSE" />
+  </Folder>
+  <Project Path="PokerEventSourced/PokerEventSourced.csproj" />
+  <Project Path="PokerEventSourced.Domain/PokerEventSourced.Domain.csproj" />
+  <Project Path="PokerEventSourced.Import/PokerEventSourced.Import.csproj" />
+  <Project Path="PokerEventSourced.Store/PokerEventSourced.Store.csproj" />
+  <Project Path="PokerEventSourced.Tests/PokerEventSourced.Tests.csproj" />
+</Solution>

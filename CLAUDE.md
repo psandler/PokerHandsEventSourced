@@ -33,21 +33,19 @@ The work plan, decisions, and open questions are in [documents/TODO.md](document
 
 ## Commands
 
-(Fill in once the solution exists.)
-
 ```bash
 dotnet build PokerEventSourced.slnx
 dotnet test --solution PokerEventSourced.slnx
 dotnet run --project PokerEventSourced
 ```
 
-- Use `global.json` to opt `dotnet test` into Microsoft.Testing.Platform (required for xUnit v3 on the .NET 10 SDK), so use `--solution`/`--project`, not a positional path.
+- `global.json` opts `dotnet test` into Microsoft.Testing.Platform (required for xUnit v3 on the .NET 10 SDK), so use `--solution`/`--project`, not a positional path.
+- Dataset checks (`PhhLocalDatasetTests`) are opt-in: `$env:POKER_DATASET_TESTS = "1"; dotnet test --solution PokerEventSourced.slnx`. They parse everything in `_phh-dataset-local` and cross-check amounts against Ongame finishing stacks. Run them after any change to the PHH parser; they must stay at 0 failures and 0 unexplained mismatches.
+- Database tests use `TestSupport/TestDatabase`: a uniquely named throwaway database (`PokerEventSourced_Test_<guid>`) on the local instance (or `POKER_TEST_SQLSERVER`), dropped afterwards. They skip if SQL Server isn't reachable.
 - If the app is running, builds fail because the exe is locked. Don't kill the user's app. Ask them to close it, or build to a scratch folder with `--artifacts-path`.
 - Don't launch the GUI app without asking the user first. Verify with `dotnet build` and `dotnet test`.
 
 ## Layout and conventions
-
-(Proposed. Adjust once scaffolded.)
 
 ```
 PokerEventSourced/          Avalonia app
@@ -59,7 +57,12 @@ PokerEventSourced.Store/    Polecat configuration, projections, queries
 PokerEventSourced.Tests/    xUnit v3 tests
 documents/                  planning docs (TODO.md)
 samples/                    sample hand-history files for tests (no real personal data unless the user says it's fine)
+scripts/                    helper scripts (download-handhq.ps1)
 ```
+
+- Shared build settings (`net10.0`, nullable, implicit usings) are in `Directory.Build.props`.
+- The project docs (`README.md`, `CLAUDE.md`, `documents/*.md`) are listed in the `docs` solution folder in `PokerEventSourced.slnx`. When you add or rename one, update the `.slnx` too. (`samples/phh/README.md` is only the dataset's license notice and stays out of it.)
+- `PokerStore.Create` (Store project) builds the Polecat store with string stream keys. `PokerStore.EnsureDatabaseExistsAsync` creates the database; Polecat creates its own tables on first use.
 
 - MVVM: views hold no logic, and view models don't reference Avalonia controls.
 - Observable properties use the partial-property form: `[ObservableProperty] public partial string Name { get; set; }`. Commands use `[RelayCommand]`.

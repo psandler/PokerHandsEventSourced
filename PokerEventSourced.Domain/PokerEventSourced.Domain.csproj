@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Events and value types. No Polecat or Avalonia references. -->
+</Project>

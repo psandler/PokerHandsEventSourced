@@ -24,7 +24,7 @@ Samples in this repo (MIT, from phh-dataset): [samples/phh/](../samples/phh/).
 |---|---|---|
 | `variant` | `'NT'` = no-limit Texas hold'em | Import only `NT` for now; skip other variants with a reason |
 | `antes` | ante per player | `AntePosted` for each non-zero |
-| `blinds_or_straddles` | index 0 = SB, 1 = BB, 2+ = straddles | `BlindPosted` (kind SmallBlind/BigBlind/Straddle) |
+| `blinds_or_straddles` | index 0 = SB, 1 = BB, 2+ = straddles, negative = new-player post | `BlindPosted` (kind SmallBlind/BigBlind/Straddle/NewPlayerPost) |
 | `min_bet` | minimum bet (= BB) | stakes |
 | `starting_stacks` | stack per player at hand start | `PlayerSeated` |
 | `actions` | the hand, in order (see below) | one event per action |
@@ -109,7 +109,7 @@ VPIP from this hand: Ivey yes (raised), Dwan yes (raised), Antonius no (only pos
 - **Board cards can come after `sm`** when players are all-in before the river.
 - **`winnings` is unreliable.** It's missing in 178 of the 183 showdown hands, and sometimes all zeros when someone clearly won (hand 1: button raises, blinds fold). We compute results ourselves and treat `winnings` as info only.
 - **`table` and `seat_count` are missing** in 15 of 1,000 hands.
-- **Negative value in `blinds_or_straddles`** (hand 83: `[0.25, 0.5, 0, 0, 0, 0, 0, -0.5, 0]`). The spec says non-negative. Probably a dead/late post by a new player. Needs checking against PokerKit (the reference implementation) before we decide the meaning. Until then, import it as a flagged post.
+- **Negative value in `blinds_or_straddles`** (hand 83: `[0.25, 0.5, 0, 0, 0, 0, 0, -0.5, 0]`). The spec page says non-negative, but PokerKit's source defines it: a **"post bet"** by a player who just sat down and pays to play straight away. It's a **live** bet (counts toward the player's bet, so they can check), but it doesn't decide who acts first. See "Negative posts" below.
 - 13 hands have more than two forced posts (straddles or posts).
 - No antes in this file.
 - **Lots of heads-up:** 536 of 1,000 hands are heads-up (`seat_count` 2). The rest is 6-max and 9-max with 4–9 players.
@@ -133,10 +133,27 @@ All files parsed as TOML, all hands are `NT`, and only the action codes `d dh`, 
 What this means for us:
 
 - **Table max can't come from `seat_count` for most sites.** Fallback: infer it from the highest seat number or largest player count seen at that `table` across hands, and mark it as inferred.
-- **iPoker has no stack sizes**, so we can't tell when a player is all-in or cap a call at the stack. Import with stacks unknown and all-in flags left empty, and flag the hand.
+- **iPoker has no stack sizes**, so we can't tell when a player is all-in or cap a call at the stack. Imported with stacks unknown, all-in flags false, turn order unchecked, and the hand flagged `StacksUnknown`.
 - **Antes appear in cash games** (Absolute). `AntePosted` is needed from day one.
-- Negative blinds show up on 5 of 6 sites, so it's a converter convention, not a one-off. Worth understanding properly (check PokerKit's source).
-- Where `winnings` is present at showdown (iPoker, Ongame, Party), it can be used to check our own pot calculation later.
+- Where `winnings` is present (iPoker, Ongame, Party), it can check our pot calculation.
+
+### Negative posts
+
+Sizes seen in the sample, relative to the big blind: **= 1 BB** 1,435 hands (all sites), **≤ ½ BB** 169 (a returning player's missed small blind), **1.5 BB** 62 (iPoker: missed both blinds).
+
+In real play a small-blind-sized post is usually dead, and the BB part of a 1.5 BB post is live and the rest dead. PHH can't express dead money, and the actions in the files were generated with PokerKit's rule (the whole post is live). Ongame shows both: hand 784 only works if a ½ BB post is live (otherwise the player bets more than their stack), while hand 2's finishing stacks show a ½ BB post was dead. So we follow PokerKit (live) and flag any post that isn't exactly 1 BB as `OddSizedPost`: that player's amounts may be off by the dead part.
+
+### Other blind oddities
+
+- **No small blind:** 390 hands have a big-blind-sized post in the small-blind slot and 0 in the big-blind slot (e.g. `[10, 0, 0]` at $5/$10). Imported as a `BigBlind` post; `HandStarted.SmallBlind` is null.
+- **Heads-up with no small blind** (`[0, 10]`, Ongame, 2 hands): the big blind acts first in the source, which breaks the turn order. Imported and flagged `ActionOutOfTurn`.
+
+## How we check the parser against the data
+
+`PhhLocalDatasetTests` (opt-in: `POKER_DATASET_TESTS=1`) runs over everything in `_phh-dataset-local`:
+
+1. **Every hand parses** (127,686 hands in the 3-files-per-folder sample, ~7 s). Turn order is checked on every action when stacks are known.
+2. **Amounts match Ongame's finishing stacks.** For each player: starting stack − what our events say they put in + winnings = finishing stack. 8,834 of 8,992 Ongame hands match exactly. The rest are explained: odd-sized posts (48), source winnings all zero (94), and hands where our pot matches the winnings less a normal rake but the source's own finishing stacks don't balance (16: a busted player shows ~100 BB again, i.e. a rebuy leaked into `finishing_stacks`).
 
 ## What else is in the dataset
 

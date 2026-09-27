@@ -15,7 +15,7 @@
 - **Winners/pots:** not in the first cut (showdowns need a hand evaluator). When we add them, wipe and re-import.
 - **Source files are kept, not copied into events.** The HandHQ files are from 2009 and never change. Each hand's first event records where it came from (dataset-relative file path + section number, e.g. `handhq/PS-.../0.5/ps NLH handhq_1-OBFUSCATED.phhs#[1]`), so any hand can be re-read from the file.
 - **Data download:** `scripts/download-handhq.ps1` into the git-ignored `_phh-dataset-local/` folder in the repo root.
-- **Unusual hands:** anything odd (negative blind values, missing table ID, etc.) is imported anyway and flagged with a reason. "Unusual hand" is a filter.
+- **Unusual hands:** anything odd is imported anyway and flagged with a `HandFlaggedUnusual` reason: `StacksUnknown`, `MissingTableId`, `ActionOutOfTurn`, `OddSizedPost`. "Unusual hand" is a filter.
 
 ## Open questions (waiting on the user)
 
@@ -23,10 +23,11 @@
 
 ## Human tasks
 
-- [ ] `git init` in `C:\projects\PokerEventSourced`, first commit
-- [ ] Create the GitHub repo and push
+- [x] `git init` in `C:\projects\PokerEventSourced`, first commit
+- [x] Create the GitHub repo and push
 - [x] Choose a license: MIT (`LICENSE`; dataset attribution in `samples/phh/README.md`)
-- [ ] Confirm the local SQL Server login can create a database (or create an empty `PokerEventSourced` database)
+- [x] Confirm the local SQL Server login can create a database (the smoke test creates and drops one)
+- [ ] Copy `PokerEventSourced/appsettings.Local.example.json` to `appsettings.Local.json` (only needed once the app talks to the database)
 - [ ] Review and commit after each chunk of work (Claude suggests commit messages)
 
 ## Setup
@@ -37,40 +38,34 @@
 - [x] PHH format research ([phh-format.md](phh-format.md)) and samples ([samples/phh/](../samples/phh/))
 - [x] Download script (`scripts/download-handhq.ps1`): sample (3 files per site/stakes folder) by default, `-All` for everything, `-Site`/`-Stakes` filters, parallel, resumable
 - [x] Sample downloaded (81 files + 47 more PS 50NL, ~127,700 hands) and surveyed per site ([phh-format.md](phh-format.md#quirks-by-site-sample-first-3-files-of-every-sitestakes-folder-127700-hands))
-- [ ] Full download (`-All`, 16.3 GB) once the parser handles the sample cleanly
-- [ ] Scaffold solution (`.slnx`, `global.json`, Avalonia app, domain/import/store/test projects)
-- [ ] Polecat wired up against local SQL Server 2025. Smoke test appends and reads an event. Check string stream keys work.
-- [ ] `appsettings.Local.example.json` template
+- [ ] Full download (`-All`, 16.3 GB): the parser handles the sample cleanly now; wait until import speed is measured
+- [x] Scaffold solution (`.slnx` with a `docs` folder for the .md files, `global.json`, `Directory.Build.props`, Avalonia app shell, Domain/Import/Store/Tests projects)
+- [x] Polecat wired up against local SQL Server 2025. Smoke test appends and reads a string-keyed stream in a throwaway database.
+- [x] `appsettings.Local.example.json` template
+- [ ] App reads the connection string from `appsettings.Local.json` and creates the database on startup
 
 ## Domain / events
 
-- [ ] Value types: `Card`, `Rank`, `Suit`, `Street`, `BlindKind`, chip amounts (`decimal`)
-- [ ] Hand events:
-  - `HandStarted` (source format, source file + section, venue, source hand ID, table ID, table max, stakes, currency, local start time, time zone abbreviation, player count)
-  - `PlayerSeated` (player name, seat number, action order p1..pN, starting stack, is button)
-  - `AntePosted`, `BlindPosted` (SB / BB / straddle)
-  - `HoleCardsDealt` (cards or unknown)
-  - `PlayerFolded`, `PlayerChecked`, `PlayerCalled` (amount, all-in), `PlayerBet` (amount, all-in), `PlayerRaised` (to, by, all-in)
-  - `FlopDealt`, `TurnDealt`, `RiverDealt`
-  - `CardsShown`, `CardsMucked`
-  - `UncalledBetReturned` (derived)
-  - `PotAwarded` (derived, later: needs a hand evaluator)
-  - `HandFlaggedUnusual` (reason), zero or more per hand
-  - `HandCompleted`
-- [ ] Stream key: `phh:{venue}:{hand}`. Fallback for files without venue/hand (famous hands): hash of the hand text.
+- [x] Value types: `Card` (JSON as "Ah"), `Rank`, `Suit`, `Street`, `BlindKind`, `UnusualReason`; amounts are `decimal`
+- [x] Hand events ([HandEvents.cs](../PokerEventSourced.Domain/Events/HandEvents.cs)): `HandStarted`, `PlayerSeated`, `HandFlaggedUnusual`, `AntePosted`, `BlindPosted`, `HoleCardsDealt`, `PlayerFolded`/`Checked`/`Called`/`Bet`/`Raised`, `FlopDealt`/`TurnDealt`/`RiverDealt`, `CardsShown`, `CardsMucked`, `UncalledBetReturned`, `HandCompleted` (total pot)
+- [ ] `PotAwarded` (later: needs a hand evaluator; then wipe and re-import)
+- [x] Stream key: `phh:{venue}:{hand}`; famous hands without venue/hand get `phh:sha256:<hash of the hand text>`
+- [x] Events round-trip through Polecat (test)
 
 ## Import (PHH)
 
-- [ ] TOML parsing (Tomlyn), `.phh` and `.phhs`
-- [ ] Table engine: check vs call, bet vs raise, call amounts, all-ins, heads-up ordering, uncalled bets
-- [ ] Parser tests from `samples/phh/` (Dwan/Ivey worked example, heads-up hand, run-out hand 42, straddle hand 83)
-- [ ] Add sample hands from the other sites to `samples/phh/`: ABS with antes, iPoker with `inf` stacks and known hole cards, Ongame with `finishing_stacks`
-- [ ] iPoker: stacks unknown (`inf`), so no all-in detection. Import anyway and flag.
-- [ ] Table max: use `seat_count` when present, otherwise infer from the table's highest seat number / player count across hands (mark as inferred)
-- [ ] Work out what negative blind values mean (check PokerKit source); 5 of 6 sites use them
-- [ ] Parse the whole sample (~127,700 hands) with zero unexplained errors
-- [ ] Skip non-`NT` variants with a reason. Report per-hand errors without failing the whole file.
-- [ ] Idempotent import (skip hands already stored)
+- [x] TOML parsing (Tomlyn), `.phh` and `.phhs`; each `[n]` section parsed on its own
+- [x] Table engine: check vs call, bet vs raise, call amounts, all-ins, heads-up ordering, uncalled bets, turn-order check
+- [x] Parser tests from `samples/phh/` (Dwan/Ivey event by event, heads-up, run-out, new-player post, muck) plus small inline hands for edge cases
+- [x] Negative blinds = PokerKit "post bet", counted live. Posts that aren't exactly 1 BB are flagged `OddSizedPost` (see [phh-format.md](phh-format.md#negative-posts))
+- [x] iPoker unknown stacks: imported, flagged `StacksUnknown`, no all-in detection or turn-order check
+- [x] Missing small blind / heads-up out-of-turn quirks handled and flagged
+- [x] Whole sample parses (127,686 hands, 0 failures) and amounts match Ongame finishing stacks, all mismatches explained (`POKER_DATASET_TESTS=1`)
+- [x] Skip non-`NT` variants with a reason; per-hand errors don't fail the file
+- [ ] Add sample hands from the other sites to `samples/phh/` so the default test run covers them: ABS with antes, iPoker with `inf` stacks, Ongame no-SB hand
+- [ ] Table max: use `seat_count` when present, otherwise infer from the table's highest seat number / player count across hands (mark as inferred). Probably a projection.
+- [ ] Importer: read files from `_phh-dataset-local`, append each `ParsedHand` as a new stream, skip hands already stored (idempotent), report failures
+- [ ] Measure import speed on a few files (open question 1)
 
 ## Projections
 

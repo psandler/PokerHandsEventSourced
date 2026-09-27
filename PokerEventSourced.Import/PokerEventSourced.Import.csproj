@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Hand-history parsers: source files -> domain events. No database access. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="PokerEventSourced.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PokerEventSourced.Domain\PokerEventSourced.Domain.csproj" />
+  </ItemGroup>
+</Project>
